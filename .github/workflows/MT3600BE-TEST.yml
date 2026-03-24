@@ -1,0 +1,22 @@
+name: MT3600BE-TEST
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    uses: ./.github/workflows/WRT-CORE.yml
+    with:
+      WRT_CONFIG: MT3600BE
+      WRT_THEME: argon
+      WRT_NAME: MT3600BE-TEST
+      WRT_SSID: MT3600BE-TEST
+      WRT_WORD: 12345678
+      WRT_IP: 192.168.68.1
+      WRT_PW: password
+      WRT_REPO: https://github.com/coolsnowwolf/lede.git
+      WRT_BRANCH: master
+      WRT_SOURCE: LEDE
+      WRT_PACKAGE: default
+      WRT_TEST: 'true'
+    secrets: inherit
