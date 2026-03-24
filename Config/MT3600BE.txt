@@ -1,0 +1,32 @@
+# =========================
+# GL.iNet GL-MT3600BE 专用配置
+# =========================
+
+CONFIG_TARGET_mediatek=y
+CONFIG_TARGET_mediatek_filogic=y
+CONFIG_TARGET_mediatek_filogic_DEVICE_glinet_gl-mt3600be=y
+
+# 文件系统
+CONFIG_TARGET_ROOTFS_SQUASHFS=y
+CONFIG_TARGET_IMAGES_GZIP=y
+
+# LuCI 与主题
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-ssl=y
+CONFIG_PACKAGE_luci-theme-argon=y
+
+# DNS / 防火墙 / 常用功能
+CONFIG_PACKAGE_dnsmasq-full=y
+CONFIG_PACKAGE_firewall4=y
+CONFIG_PACKAGE_nftables=y
+CONFIG_PACKAGE_ppp=y
+CONFIG_PACKAGE_ppp-mod-pppoe=y
+
+# Wi-Fi 常用支持
+CONFIG_PACKAGE_wpad-openssl=y
+CONFIG_PACKAGE_kmod-mt_wifi=y
+
+# 文件系统工具
+CONFIG_PACKAGE_e2fsprogs=y
+CONFIG_PACKAGE_f2fs-tools=y
+CONFIG_PACKAGE_resize2fs=y
