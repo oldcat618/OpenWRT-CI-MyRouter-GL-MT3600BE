@@ -16,8 +16,8 @@ fi
 FW_SIZE_BYTES=$(stat -c%s "$FW_FILE")
 FW_SIZE_MB=$((FW_SIZE_BYTES / 1024 / 1024))
 
-# 粗略按 256MB NAND 估算，仅用于日志提示
-TOTAL_MB=256
+# 粗略按 512MB NAND 估算，仅用于日志提示
+TOTAL_MB=512
 LEFT_MB=$((TOTAL_MB - FW_SIZE_MB))
 
 echo "=============================="
