@@ -1,0 +1,24 @@
+name: MT3600BE-LATEST
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/MT3600BE-LATEST.yml'
+      - '.github/workflows/WRT-CORE.yml'
+      - 'Config/MT3600BE-MINIMAL.txt'
+      - 'Scripts/**'
+
+jobs:
+  call-core:
+    uses: ./.github/workflows/WRT-CORE.yml
+    with:
+      WRT_NAME: GL-MT3600BE-LATEST
+      WRT_REPO: coolsnowwolf/lede
+      WRT_BRANCH: master
+      WRT_COMMIT: ''
+      DEVICE_CONFIG: Config/MT3600BE-MINIMAL.txt
+      GENERAL_CONFIG: ''
+      RELEASE_TAG: mt3600be-latest
+      ENABLE_RELEASE: true
+      ENABLE_ARTIFACT: true
