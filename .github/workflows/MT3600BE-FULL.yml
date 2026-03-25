@@ -14,8 +14,13 @@ jobs:
       WRT_NAME: MT3600BE-FULL
       WRT_REPO: coolsnowwolf/lede
       WRT_BRANCH: master
-      WRT_CONFIG: Config/MT3600BE-MINIMAL.txt
-      WRT_PACKAGE: Config/GENERAL-FULL.txt
-      WRT_RELEASE: true
-      WRT_ARTIFACT: true
+
+      DEVICE_CONFIG: Config/MT3600BE-MINIMAL.txt
+      GENERAL_CONFIG: Config/GENERAL-FULL.txt
+
+      RELEASE_TAG: full
+
+      ENABLE_RELEASE: true
+      ENABLE_ARTIFACT: true
+
     secrets: inherit
