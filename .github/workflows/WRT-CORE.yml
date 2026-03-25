@@ -17,26 +17,28 @@ on:
       WRT_COMMIT:
         required: false
         type: string
-        default: 6c3097f
-      WRT_CONFIG:
+        default: ''
+      DEVICE_CONFIG:
         required: true
         type: string
-      WRT_GENERAL:
+      GENERAL_CONFIG:
         required: false
         type: string
         default: ''
-      WRT_IP:
-        required: false
+      RELEASE_TAG:
+        required: true
         type: string
-        default: 192.168.8.1
-      WRT_THEME:
-        required: false
-        type: string
-        default: argon
-      WRT_RELEASE:
+      ENABLE_RELEASE:
         required: false
         type: boolean
-        default: false
+        default: true
+      ENABLE_ARTIFACT:
+        required: false
+        type: boolean
+        default: true
+
+env:
+  TZ: Asia/Shanghai
 
 jobs:
   build:
@@ -44,95 +46,121 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout project
+      - name: Checkout CI repository
         uses: actions/checkout@v4
 
       - name: Initialization environment
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install \
             ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
-            ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib \
-            g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev \
-            libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev \
-            libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp nano ninja-build \
-            p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
-            qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip \
-            vim wget xmlto xxd zlib1g-dev
-          sudo timedatectl set-timezone Asia/Shanghai
+            ccache cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
+            g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev \
+            libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev \
+            libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full \
+            patch pkgconf python2.7 python3 python3-pip python3-ply python3-docutils python3-setuptools qemu-utils \
+            rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev file
+          sudo timedatectl set-timezone "$TZ"
           sudo mkdir -p /mnt/build_wrt
-          sudo chown -R $USER:$GROUPS /mnt/build_wrt
+          sudo chown "$USER":"$USER" /mnt/build_wrt
 
-      - name: Clone source and lock commit
+      - name: Check disk space
+        run: |
+          chmod +x Scripts/check_space.sh
+          bash Scripts/check_space.sh
+
+      - name: Clone source code
         working-directory: /mnt/build_wrt
         run: |
-          git clone --depth=200 https://github.com/${{ inputs.WRT_REPO }} openwrt
-          cd openwrt
-          git checkout ${{ inputs.WRT_BRANCH }}
-          git fetch --depth=200 origin ${{ inputs.WRT_COMMIT }} || true
-          git checkout ${{ inputs.WRT_COMMIT }}
-          echo "SOURCE_DATE=$(date '+%Y.%m.%d-%H%M')" >> $GITHUB_ENV
-          echo "COMMIT_ID=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          git clone --depth 1 -b "${{ inputs.WRT_BRANCH }}" "https://github.com/${{ inputs.WRT_REPO }}.git" lede
+          cd lede
+          if [ -n "${{ inputs.WRT_COMMIT }}" ]; then
+            git fetch --depth 1 origin "${{ inputs.WRT_COMMIT }}"
+            git checkout "${{ inputs.WRT_COMMIT }}"
+          fi
+          echo "SOURCE_REPO=${{ inputs.WRT_REPO }}" >> $GITHUB_ENV
+          echo "SOURCE_BRANCH=${{ inputs.WRT_BRANCH }}" >> $GITHUB_ENV
+          echo "SOURCE_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Load custom feeds and packages
-        working-directory: /mnt/build_wrt/openwrt
         run: |
-          chmod +x $GITHUB_WORKSPACE/Scripts/*.sh
-          $GITHUB_WORKSPACE/Scripts/Packages.sh
+          cp -f Scripts/Packages.sh /mnt/build_wrt/lede/Packages.sh
+          chmod +x /mnt/build_wrt/lede/Packages.sh
+          cd /mnt/build_wrt/lede
+          ./Packages.sh
 
       - name: Update feeds
-        working-directory: /mnt/build_wrt/openwrt
         run: |
+          cd /mnt/build_wrt/lede
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
       - name: Load custom configuration
-        working-directory: /mnt/build_wrt/openwrt
         run: |
-          cp $GITHUB_WORKSPACE/${{ inputs.WRT_CONFIG }} .config
-          if [ -n "${{ inputs.WRT_GENERAL }}" ] && [ -f "$GITHUB_WORKSPACE/${{ inputs.WRT_GENERAL }}" ]; then
-            cat $GITHUB_WORKSPACE/${{ inputs.WRT_GENERAL }} >> .config
+          cp -f Scripts/Settings.sh /mnt/build_wrt/lede/Settings.sh
+          chmod +x /mnt/build_wrt/lede/Settings.sh
+          cd /mnt/build_wrt/lede
+          ./Settings.sh
+          cat "$GITHUB_WORKSPACE/${{ inputs.DEVICE_CONFIG }}" > .config
+          if [ -n "${{ inputs.GENERAL_CONFIG }}" ] && [ -f "$GITHUB_WORKSPACE/${{ inputs.GENERAL_CONFIG }}" ]; then
+            cat "$GITHUB_WORKSPACE/${{ inputs.GENERAL_CONFIG }}" >> .config
           fi
-          export LAN_IP=${{ inputs.WRT_IP }}
-          export THEME=${{ inputs.WRT_THEME }}
-          $GITHUB_WORKSPACE/Scripts/Settings.sh
           make defconfig
-          echo "===== .config tail ====="
-          tail -n 120 .config || true
+          echo "========== .config tail =========="
+          tail -n 200 .config || true
 
       - name: Download package
-        working-directory: /mnt/build_wrt/openwrt
-        run: make download -j8 V=s
-
-      - name: Compile firmware
-        working-directory: /mnt/build_wrt/openwrt
         run: |
-          make -j$(nproc) V=s || make -j1 V=s
+          cd /mnt/build_wrt/lede
+          make download -j8 V=s || true
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
 
-      - name: Organize firmware
-        id: organize
-        working-directory: /mnt/build_wrt/openwrt
+      - name: Compile the firmware
+        id: compile
         run: |
-          mkdir -p /mnt/build_wrt/artifacts
-          find bin/targets/ -type f \( -name '*sysupgrade.bin' -o -name '*factory.bin' -o -name '*recovery.itb' -o -name '*preloader.bin' -o -name '*bl31-uboot.fip' -o -name '*manifest' -o -name '*sha256sums' \) -exec cp -f {} /mnt/build_wrt/artifacts/ \;
-          ls -lah /mnt/build_wrt/artifacts
-          echo "status=success" >> $GITHUB_OUTPUT
+          cd /mnt/build_wrt/lede
+          echo "BUILD_START=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+          make -j$(nproc) V=s
+          echo "BUILD_END=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+
+      - name: Organize firmware files
+        if: steps.compile.conclusion == 'success'
+        run: |
+          cd /mnt/build_wrt/lede/bin/targets/*/*
+          mkdir -p $GITHUB_WORKSPACE/output
+          find . -maxdepth 1 -type f \( -name "*.bin" -o -name "*.img.gz" -o -name "*.itb" -o -name "*.manifest" -o -name "*.buildinfo" -o -name "*.sha256sums" \) -exec cp -f {} $GITHUB_WORKSPACE/output/ \;
+          cp -f profiles.json $GITHUB_WORKSPACE/output/ 2>/dev/null || true
+          echo "FIRMWARE_DIR=$GITHUB_WORKSPACE/output" >> $GITHUB_ENV
 
       - name: Upload artifact
+        if: steps.compile.conclusion == 'success' && inputs.ENABLE_ARTIFACT
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.WRT_NAME }}-${{ env.SOURCE_DATE }}-${{ env.COMMIT_ID }}
-          path: /mnt/build_wrt/artifacts/
+          name: ${{ inputs.WRT_NAME }}-${{ env.SOURCE_COMMIT }}
+          path: output/
           if-no-files-found: error
 
-      - name: Create release
-        if: ${{ inputs.WRT_RELEASE && secrets.RELEASES_TOKEN != '' }}
+      - name: Generate release information
+        if: steps.compile.conclusion == 'success' && inputs.ENABLE_RELEASE
+        run: |
+          cat > release.txt <<REL
+          Device: ${{ inputs.WRT_NAME }}
+          Source: ${{ env.SOURCE_REPO }}
+          Branch: ${{ env.SOURCE_BRANCH }}
+          Commit: ${{ env.SOURCE_COMMIT }}
+          Build Start: ${{ env.BUILD_START }}
+          Build End: ${{ env.BUILD_END }}
+          REL
+
+      - name: Upload firmware to release
+        if: steps.compile.conclusion == 'success' && inputs.ENABLE_RELEASE
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.RELEASES_TOKEN }}
-          tag_name: ${{ inputs.WRT_NAME }}-${{ env.SOURCE_DATE }}-${{ env.COMMIT_ID }}
-          name: ${{ inputs.WRT_NAME }}-${{ env.SOURCE_DATE }}-${{ env.COMMIT_ID }}
-          files: /mnt/build_wrt/artifacts/*
-          generate_release_notes: true
+          tag_name: ${{ inputs.RELEASE_TAG }}-${{ env.SOURCE_COMMIT }}
+          body_path: release.txt
+          files: output/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
