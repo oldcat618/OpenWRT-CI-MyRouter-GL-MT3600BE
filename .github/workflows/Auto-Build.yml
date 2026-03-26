@@ -5,6 +5,10 @@ on:
     - cron: '0 16 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   call-core:
     uses: ./.github/workflows/WRT-CORE.yml
@@ -14,7 +18,8 @@ jobs:
       WRT_BRANCH: master
       WRT_COMMIT: 6c3097f
       DEVICE_CONFIG: Config/MT3600BE-MINIMAL.txt
-      GENERAL_CONFIG: ''
       RELEASE_TAG: mt3600be-auto
       ENABLE_RELEASE: true
       ENABLE_ARTIFACT: true
+      BUILD_THREADS: '4'
+    secrets: inherit
