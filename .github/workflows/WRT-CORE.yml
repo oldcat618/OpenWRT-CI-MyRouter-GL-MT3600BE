@@ -36,6 +36,10 @@ on:
         required: false
         type: boolean
         default: true
+      BUILD_THREADS:
+        required: false
+        type: string
+        default: '4'
 
 env:
   TZ: Asia/Shanghai
@@ -60,8 +64,8 @@ jobs:
             g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev \
             libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev \
             libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full \
-            patch pkgconf python2.7 python3 python3-pip python3-ply python3-docutils python3-setuptools qemu-utils \
-            rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev file
+            patch pkgconf python3 python3-pip python3-ply python3-docutils python3-setuptools qemu-utils \
+            rsync scons squashfs-tools subversion swig texinfo uglifyjs unzip vim wget xmlto xxd zlib1g-dev file
           sudo timedatectl set-timezone "$TZ"
           sudo mkdir -p /mnt/build_wrt
           sudo chown "$USER":"$USER" /mnt/build_wrt
@@ -74,15 +78,15 @@ jobs:
       - name: Clone source code
         working-directory: /mnt/build_wrt
         run: |
-          git clone --depth 1 -b "${{ inputs.WRT_BRANCH }}" "https://github.com/${{ inputs.WRT_REPO }}.git" lede
+          git clone --single-branch --depth 1 -b "${{ inputs.WRT_BRANCH }}" "https://github.com/${{ inputs.WRT_REPO }}.git" lede
           cd lede
           if [ -n "${{ inputs.WRT_COMMIT }}" ]; then
             git fetch --depth 1 origin "${{ inputs.WRT_COMMIT }}"
             git checkout "${{ inputs.WRT_COMMIT }}"
           fi
-          echo "SOURCE_REPO=${{ inputs.WRT_REPO }}" >> $GITHUB_ENV
-          echo "SOURCE_BRANCH=${{ inputs.WRT_BRANCH }}" >> $GITHUB_ENV
-          echo "SOURCE_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "SOURCE_REPO=${{ inputs.WRT_REPO }}" >> "$GITHUB_ENV"
+          echo "SOURCE_BRANCH=${{ inputs.WRT_BRANCH }}" >> "$GITHUB_ENV"
+          echo "SOURCE_COMMIT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
       - name: Load custom feeds and packages
         run: |
@@ -122,18 +126,45 @@ jobs:
         id: compile
         run: |
           cd /mnt/build_wrt/lede
-          echo "BUILD_START=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
-          make -j$(nproc) V=s
-          echo "BUILD_END=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+          echo "BUILD_START=$(date +'%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
+
+          (
+            while true; do
+              echo "[keepalive] $(date '+%F %T') compiling..."
+              sleep 60
+            done
+          ) &
+          KEEPALIVE_PID=$!
+
+          make -j${{ inputs.BUILD_THREADS }} V=s
+          BUILD_RET=$?
+
+          kill "$KEEPALIVE_PID" || true
+          echo "BUILD_END=$(date +'%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
+          exit "$BUILD_RET"
+
+      - name: Dump error context on failure
+        if: failure()
+        run: |
+          cd /mnt/build_wrt/lede
+          echo "========== .config tail =========="
+          tail -n 200 .config || true
+          echo "========== possible error lines =========="
+          grep -RinE "(error:|Error [0-9]+|No such file|failed|cannot find|not found|recipe for target)" build_dir staging_dir logs 2>/dev/null | tail -n 200 || true
+          echo "========== recent log tails =========="
+          find build_dir staging_dir -type f \( -name "*.log" -o -name "*.txt" \) 2>/dev/null | tail -n 20 | while read -r f; do
+            echo "----- $f -----"
+            tail -n 80 "$f" || true
+          done
 
       - name: Organize firmware files
         if: steps.compile.conclusion == 'success'
         run: |
           cd /mnt/build_wrt/lede/bin/targets/*/*
-          mkdir -p $GITHUB_WORKSPACE/output
-          find . -maxdepth 1 -type f \( -name "*.bin" -o -name "*.img.gz" -o -name "*.itb" -o -name "*.manifest" -o -name "*.buildinfo" -o -name "*.sha256sums" \) -exec cp -f {} $GITHUB_WORKSPACE/output/ \;
-          cp -f profiles.json $GITHUB_WORKSPACE/output/ 2>/dev/null || true
-          echo "FIRMWARE_DIR=$GITHUB_WORKSPACE/output" >> $GITHUB_ENV
+          mkdir -p "$GITHUB_WORKSPACE/output"
+          find . -maxdepth 1 -type f \( -name "*.bin" -o -name "*.img.gz" -o -name "*.itb" -o -name "*.manifest" -o -name "*.buildinfo" -o -name "*.sha256sums" \) -exec cp -f {} "$GITHUB_WORKSPACE/output/" \;
+          cp -f profiles.json "$GITHUB_WORKSPACE/output/" 2>/dev/null || true
+          echo "FIRMWARE_DIR=$GITHUB_WORKSPACE/output" >> "$GITHUB_ENV"
 
       - name: Upload artifact
         if: steps.compile.conclusion == 'success' && inputs.ENABLE_ARTIFACT
