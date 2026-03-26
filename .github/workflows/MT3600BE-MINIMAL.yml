@@ -19,4 +19,3 @@ jobs:
       ENABLE_RELEASE: false
       ENABLE_ARTIFACT: true
     secrets: inherit
-    
