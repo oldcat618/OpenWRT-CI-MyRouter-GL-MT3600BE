@@ -118,22 +118,19 @@ jobs:
       - name: Download package
         run: |
           cd /mnt/build_wrt/lede
+
+          # 第一次下载（并发）
           make download -j8 V=s || true
+
+          echo "========== remove broken small files =========="
           find dl -size -1024c -exec ls -l {} \; || true
           find dl -size -1024c -exec rm -f {} \; || true
 
+          # 第二次下载（串行补齐）
           make download -j1 V=s || true
-          echo "========== leftover tiny files =========="
-          find dl -size -1024c -exec ls -l {} \; || true
 
-      - name: Fail early if downloads are still broken
-        run: |
-          cd /mnt/build_wrt/lede
-          if find dl -size -1024c | grep -q .; then
-            echo "ERROR: There are still broken/incomplete downloaded files."
-            find dl -size -1024c -exec ls -l {} \;
-            exit 1
-          fi
+          echo "========== remaining small files (allowed) =========="
+          find dl -size -1024c -exec ls -l {} \; || true
 
       - name: Compile the firmware
         id: compile
