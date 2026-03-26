@@ -41,6 +41,7 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
+
     steps:
       - name: Checkout CI repository
         uses: actions/checkout@v4
@@ -79,10 +80,9 @@ jobs:
       - name: Apply master auto-fix patches
         run: |
           cd /mnt/build_wrt/lede
-          # Prefer the stable OpenWrt source mirror over failing snapshot mirror URLs when possible.
           sed -i 's#https://sources.cdn.openwrt.org#https://downloads.openwrt.org/sources#g' scripts/download.pl || true
+          sed -i 's#https://sources.openwrt.org#https://downloads.openwrt.org/sources#g' scripts/download.pl || true
           sed -i 's#https://mirror2.openwrt.org/sources#https://downloads.openwrt.org/sources#g' scripts/download.pl || true
-          # Some master snapshots have stale package references that break minimal builds; disable them in config later.
           grep -n "downloads.openwrt.org/sources" scripts/download.pl || true
 
       - name: Load custom feeds and packages
@@ -108,7 +108,10 @@ jobs:
           if [ -n "${{ inputs.GENERAL_CONFIG }}" ] && [ -f "$GITHUB_WORKSPACE/${{ inputs.GENERAL_CONFIG }}" ]; then
             cat "$GITHUB_WORKSPACE/${{ inputs.GENERAL_CONFIG }}" >> .config
           fi
+
           make defconfig
+          yes "" | make olddefconfig >/dev/null 2>&1 || true
+
           echo "========== .config tail =========="
           tail -n 200 .config || true
 
@@ -118,9 +121,19 @@ jobs:
           make download -j8 V=s || true
           find dl -size -1024c -exec ls -l {} \; || true
           find dl -size -1024c -exec rm -f {} \; || true
-          # Retry serially after cleaning tiny/broken files so master snapshots have a second chance.
+
           make download -j1 V=s || true
+          echo "========== leftover tiny files =========="
           find dl -size -1024c -exec ls -l {} \; || true
+
+      - name: Fail early if downloads are still broken
+        run: |
+          cd /mnt/build_wrt/lede
+          if find dl -size -1024c | grep -q .; then
+            echo "ERROR: There are still broken/incomplete downloaded files."
+            find dl -size -1024c -exec ls -l {} \;
+            exit 1
+          fi
 
       - name: Compile the firmware
         id: compile
