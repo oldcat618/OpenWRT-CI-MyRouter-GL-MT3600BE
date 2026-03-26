@@ -119,18 +119,28 @@ jobs:
         run: |
           cd /mnt/build_wrt/lede
 
-          # 第一次下载（并发）
           make download -j8 V=s || true
 
           echo "========== remove broken small files =========="
           find dl -size -1024c -exec ls -l {} \; || true
           find dl -size -1024c -exec rm -f {} \; || true
 
-          # 第二次下载（串行补齐）
           make download -j1 V=s || true
 
           echo "========== remaining small files (allowed) =========="
           find dl -size -1024c -exec ls -l {} \; || true
+
+      - name: Clean build environment (critical fix)
+        run: |
+          cd /mnt/build_wrt/lede
+          make dirclean || true
+          rm -rf tmp build_dir staging_dir
+          cat "$GITHUB_WORKSPACE/${{ inputs.DEVICE_CONFIG }}" > .config
+          if [ -n "${{ inputs.GENERAL_CONFIG }}" ] && [ -f "$GITHUB_WORKSPACE/${{ inputs.GENERAL_CONFIG }}" ]; then
+            cat "$GITHUB_WORKSPACE/${{ inputs.GENERAL_CONFIG }}" >> .config
+          fi
+          make defconfig
+          yes "" | make olddefconfig >/dev/null 2>&1 || true
 
       - name: Compile the firmware
         id: compile
@@ -146,7 +156,7 @@ jobs:
           ) &
           KEEPALIVE_PID=$!
 
-          make -j4 V=s
+          make -j1 V=s
           BUILD_RET=$?
 
           kill $KEEPALIVE_PID || true
