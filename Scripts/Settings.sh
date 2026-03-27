@@ -3,9 +3,6 @@ set -e
 
 echo "==> Start custom settings"
 
-#--------------------------------------------------
-# 1. 基础变量
-#--------------------------------------------------
 WRT_IP="${WRT_IP:-192.168.68.1}"
 WRT_NAME="${WRT_NAME:-MT3600BE-LEDE}"
 
@@ -15,21 +12,13 @@ echo "TOPDIR: $TOPDIR"
 echo "WRT_IP: $WRT_IP"
 echo "WRT_NAME: $WRT_NAME"
 
-#--------------------------------------------------
-# 2. 修改默认 IP / 主机名
-#--------------------------------------------------
+# 修改默认 IP / 主机名
 sed -i "s/192.168.1.1/${WRT_IP}/g" package/base-files/files/bin/config_generate || true
 sed -i "s/hostname='.*'/hostname='${WRT_NAME}'/g" package/base-files/files/bin/config_generate || true
 
-#--------------------------------------------------
-# 3. 清理旧目录，避免重复克隆冲突
-#--------------------------------------------------
+# 清理旧目录
 rm -rf package/custom
 mkdir -p package/custom
-
-#--------------------------------------------------
-# 4. 拉取额外软件包
-#--------------------------------------------------
 
 # OpenClash
 git clone --depth=1 https://github.com/vernesong/OpenClash.git package/custom/openclash
@@ -55,22 +44,14 @@ rm -rf package/custom/netspeedtest/.git package/custom/netspeedtest/.github
 git clone --depth=1 https://github.com/sirpdboy/luci-app-partexp.git package/custom/partexp
 rm -rf package/custom/partexp/.git package/custom/partexp/.github
 
-# USB Printer：改为从 ImmortalWrt LuCI 拉取
-svn export https://github.com/immortalwrt/luci/trunk/applications/luci-app-usb-printer package/custom/luci-app-usb-printer
-
-# Vlmcsd：LuCI 页面 + 核心程序
+# Vlmcsd
 svn export https://github.com/immortalwrt/luci/trunk/applications/luci-app-vlmcsd package/custom/luci-app-vlmcsd
 svn export https://github.com/immortalwrt/packages/trunk/net/vlmcsd package/custom/vlmcsd
 
-#--------------------------------------------------
-# 5. 重新安装 feeds，纳入依赖
-#--------------------------------------------------
+# 重新纳入 feeds 依赖
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
-#--------------------------------------------------
-# 6. 打印确认
-#--------------------------------------------------
 echo "==> Custom package list"
 find package/custom -maxdepth 2 -type d | sort || true
 
