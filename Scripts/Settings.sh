@@ -45,7 +45,8 @@ git clone --depth=1 https://github.com/sirpdboy/luci-app-partexp.git package/cus
 rm -rf package/custom/partexp/.git package/custom/partexp/.github
 
 # Vlmcsd - LuCI 页面
-svn export https://github.com/immortalwrt/luci/branches/openwrt-21.02/applications/luci-app-vlmcsd package/custom/luci-app-vlmcsd
+git clone --depth=1 https://github.com/cokebar/luci-app-vlmcsd.git package/custom/luci-app-vlmcsd
+rm -rf package/custom/luci-app-vlmcsd/.git package/custom/luci-app-vlmcsd/.github
 
 # Vlmcsd - 核心程序
 git clone --depth=1 https://github.com/cokebar/openwrt-vlmcsd.git package/custom/vlmcsd
