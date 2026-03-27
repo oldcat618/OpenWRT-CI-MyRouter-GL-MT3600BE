@@ -55,12 +55,12 @@ rm -rf package/custom/netspeedtest/.git package/custom/netspeedtest/.github
 git clone --depth=1 https://github.com/sirpdboy/luci-app-partexp.git package/custom/partexp
 rm -rf package/custom/partexp/.git package/custom/partexp/.github
 
-# USB Printer：改用 svn 从 LEDE 主树直接拉
-svn export https://github.com/coolsnowwolf/lede/trunk/package/lean/luci-app-usb-printer package/custom/luci-app-usb-printer
+# USB Printer：改为从 ImmortalWrt LuCI 拉取
+svn export https://github.com/immortalwrt/luci/trunk/applications/luci-app-usb-printer package/custom/luci-app-usb-printer
 
-# Vlmcsd：也建议直接从 LEDE 主树拉，和 LEDE 更一致
-svn export https://github.com/coolsnowwolf/lede/trunk/package/lean/luci-app-vlmcsd package/custom/luci-app-vlmcsd
-svn export https://github.com/coolsnowwolf/lede/trunk/package/lean/vlmcsd package/custom/vlmcsd
+# Vlmcsd：LuCI 页面 + 核心程序
+svn export https://github.com/immortalwrt/luci/trunk/applications/luci-app-vlmcsd package/custom/luci-app-vlmcsd
+svn export https://github.com/immortalwrt/packages/trunk/net/vlmcsd package/custom/vlmcsd
 
 #--------------------------------------------------
 # 5. 重新安装 feeds，纳入依赖
