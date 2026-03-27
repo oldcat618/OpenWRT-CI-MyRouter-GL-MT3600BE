@@ -55,13 +55,12 @@ rm -rf package/custom/netspeedtest/.git package/custom/netspeedtest/.github
 git clone --depth=1 https://github.com/sirpdboy/luci-app-partexp.git package/custom/partexp
 rm -rf package/custom/partexp/.git package/custom/partexp/.github
 
-# USB Printer
-git clone --depth=1 https://github.com/lisaac/luci-app-usb-printer.git package/custom/usb-printer
-rm -rf package/custom/usb-printer/.git package/custom/usb-printer/.github
+# USB Printer：改用 svn 从 LEDE 主树直接拉
+svn export https://github.com/coolsnowwolf/lede/trunk/package/lean/luci-app-usb-printer package/custom/luci-app-usb-printer
 
-# Vlmcsd
-git clone --depth=1 https://github.com/cokebar/luci-app-vlmcsd.git package/custom/vlmcsd
-rm -rf package/custom/vlmcsd/.git package/custom/vlmcsd/.github
+# Vlmcsd：也建议直接从 LEDE 主树拉，和 LEDE 更一致
+svn export https://github.com/coolsnowwolf/lede/trunk/package/lean/luci-app-vlmcsd package/custom/luci-app-vlmcsd
+svn export https://github.com/coolsnowwolf/lede/trunk/package/lean/vlmcsd package/custom/vlmcsd
 
 #--------------------------------------------------
 # 5. 重新安装 feeds，纳入依赖
